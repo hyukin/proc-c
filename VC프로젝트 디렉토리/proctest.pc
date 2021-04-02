@@ -1,0 +1,600 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <string.h>
+#include <conio.h>
+#include <time.h>
+#define _CRT_SECURE_NO_WARNINGS
+#define getch() _getch()
+#include<windows.h>
+#include <sqlda.h>
+#include <sqlca.h>
+#include <sqlcpr.h>
+
+void DB_connect();
+void print();
+void sql_error(char *msg);
+void inquire();
+void closedcash();
+void Select_tuple();
+void Update_tuple();
+void Insert_tuple();
+void view_customer();
+void delete_customer();
+void print_customer();
+void clear_stdin();
+void Insert_tuple();
+void make_bacode();
+void Refund_select();
+void show_liqdate();
+
+EXEC SQL BEGIN DECLARE SECTION;
+   VARCHAR uid[80];
+   VARCHAR pwd[20];
+EXEC SQL END DECLARE SECTION;
+
+char p_code[20][100], p_name[20][14], p_amount[20][13],p_price[20][6] ;
+char r_time[20][100], r_price[20][20], r_check[20][13];
+int i;
+int bacode=0;
+int m_bacode=1;
+int stop=0;
+char s1[10], s2[10],s3[10];
+int paytype=0;
+int total=0;
+
+void main() {
+   DB_connect();
+   int select;
+
+   while (1) {
+      print(); // 프린트 사용자 함수
+      printf("\t\t\t   원하는 메뉴를 선택해주세요 : ");
+      scanf("\t%d", &select);
+      clear_stdin();
+      switch(select){
+         case 1:  // 상품 판매
+	system("cls");
+            strcat(s1, s2);
+            strcat(s1, s3);
+            Select_tuple(); // 매대 올림
+            if(stop !=1){
+            Update_tuple(); // 재고 -1
+            Insert_tuple();
+            //getch();
+            }
+	system("cls");
+            break;
+         case 2:  // 영수증 업무
+         show_liqdate();
+            break;
+         case 3:  // 조회 업무
+            inquire();
+            break;
+         case 4: // 매출액 조회
+            closedcash();
+            break;
+         case 5:  //고객 조회
+         print_customer();
+         break;
+         case 6:
+         return;
+      }
+   }
+}
+
+void print(){  // 프린트 함수
+  time_t t = time(NULL);
+  struct tm tm = *localtime(&t);
+//│─┌ ┐└ ┘
+  printf("\t\t\t  ┌────────────────────────────────────────────────┐\n\n");
+  printf("\t\t\t     %d년 %d월 %d일   %d시 %d분", tm.tm_year+1900, tm.tm_mon+1, tm.tm_mday,tm.tm_hour, tm.tm_min);
+  printf("\n\t\t\t      ☆어서오세요. 와라편의점입니다.☆\n");
+  printf("\n\n\t\t\t\t\t1 - 상품 판매\n\t\t\t\t\t2 - 영수증 업무\n\t\t\t\t\t3 - 상품 조회\n\t\t\t\t\t4 - 매출액 조회\n\t\t\t\t\t5 - 고객 조회\n\t\t\t\t\t6 - 나가기\n\n");
+  printf("\t\t\t  └────────────────────────────────────────────────┘\n\n");
+  sprintf(s1, "%d", tm.tm_year+1900); 
+  sprintf(s2, "%d", tm.tm_mon+1); 
+  sprintf(s3, "%d", tm.tm_mday); 
+
+}
+
+void make_bacode(){  // 바코드 생성함수
+   EXEC SQL BEGIN DECLARE SECTION;
+      char l_code[10];
+
+   EXEC SQL END DECLARE SECTION;
+   EXEC SQL DECLARE CUR12 CURSOR FOR  // 커서 선언
+      select liq_barcode
+      from LIQUIDATE;
+   EXEC SQL OPEN CUR12;
+   EXEC SQL WHENEVER NOT FOUND DO break;
+   for(;;){
+      EXEC SQL FETCH CUR12 INTO :l_code;
+      srand((unsigned int)time(NULL));
+      m_bacode +=1;
+      m_bacode += rand()%100+1;
+      
+   }
+   EXEC SQL CLOSE CUR12;   
+
+}
+
+void inquire(){  // 조회 함수
+   printf("\t\t================================상품조회=================================\n\n");
+   EXEC SQL BEGIN DECLARE SECTION;
+      char product_code[7];
+      char product_name[15];
+      int price;
+      int amount;
+      
+   EXEC SQL END DECLARE SECTION;
+   EXEC SQL DECLARE CUR1 CURSOR FOR  // 커서 선언
+      select PRODUCT_CODE, PRODUCT_NAME, PRICE, AMOUNT
+      from product;
+   EXEC SQL OPEN CUR1;
+   printf("\n\t\t바코드 \t\t상품명 \t가격 \t\t재고수량\n");
+   EXEC SQL WHENEVER NOT FOUND DO break;
+   for(;;){
+      EXEC SQL FETCH CUR1 INTO :product_code, :product_name, :price, :amount;
+      printf("\t\t%s \t\t%s \t\t%d \t\t%d\n", product_code, product_name, price, amount);
+   }
+   EXEC SQL CLOSE CUR1;
+}
+
+void closedcash(){
+    printf("\n\n\t\t$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n\n");
+    EXEC SQL BEGIN DECLARE SECTION;
+        char  close_date[15];
+        int  pay_cash;
+        int  pay_card;
+        int  using_point;
+    EXEC SQL END DECLARE SECTION;
+    EXEC SQL DECLARE CUR2 CURSOR FOR
+       select CLO_DATE, PAY_CASH, PAY_CARD
+       from closedcash
+       order by CLO_DATE;
+    EXEC SQL OPEN CUR2;
+    printf("\n\t\t날짜 \t\t현금 결제 \t\t카드 결제 \t\t총 매출\n\n ");
+    EXEC SQL WHENEVER NOT FOUND DO break;
+    for(;;){
+        EXEC SQL FETCH CUR2 INTO :close_date, :pay_cash, :pay_card;
+        printf("\t\t%s \t%d원 \t\t%d원 \t\t%d원\n", close_date, pay_cash, pay_card,pay_cash+pay_card);
+    }
+    EXEC SQL CLOSE CUR2;
+}
+
+
+//---------------------------------------- 고객 시작 ------------------------------------------
+void print_customer() { // 고객 조회 메뉴 출력
+   int num;
+
+   printf("\t\t================================고객조회=================================\n\n");
+   printf("\n\n\t\t\t\t1 - 고객 조회\n\t\t\t\t2 - 고객 삭제\n\t\t\t\t3 - 나가기\n\n");
+   printf("\t\t=========================================================================\n\n");
+
+  printf("\t\t메뉴를 선택하세요 : ");
+  scanf("\t\t%d", &num);
+
+ switch(num) {
+  case 1: //조회
+   view_customer();
+   break;
+
+  case 2: //삭제
+   delete_customer();
+   break;
+
+  case 3: //나가기
+   break;  
+  }
+}
+
+
+/////////////////////////////////////////
+void view_customer() { // 1번 고객조회
+  EXEC SQL BEGIN DECLARE SECTION;
+    char phone_number[12];
+    char customer_name[10];
+    char point[10];
+
+    char c_name[10];
+  EXEC SQL END DECLARE SECTION;
+
+  printf("\n\t\t조회할 고객의 이름을 입력하세요 : ");
+   scanf("\t\t%s", &c_name);
+
+      EXEC SQL DECLARE C001 CURSOR FOR
+    select PHONE_NUMBER, CUSTOMER_NAME, POINT 
+    from customer
+    where :c_name = customer_name;
+
+  EXEC SQL OPEN C001;
+  printf("\t\t 고객 전화번호 \t 고객 이름 \t 포인트 \n");
+  EXEC SQL WHENEVER NOT FOUND DO break;
+  for (;;) {
+    EXEC SQL FETCH C001 INTO :phone_number, :customer_name, :point;
+    printf("\t\t %11s \t %s \t %s \n", phone_number, customer_name, point);
+  }
+  EXEC SQL CLOSE C001;
+}
+/////////////////////////////////////////////////////
+
+void delete_customer() { // 2번 고객삭제
+  EXEC SQL BEGIN DECLARE SECTION;
+    char phone_number[12];
+    char customer_name[10];
+    char point[10];
+
+    char c_phone[12];
+  EXEC SQL END DECLARE SECTION;
+
+  printf("\n\t\t삭제할 고객의  전화번호를 입력하세요 : ");
+   scanf("\t\t%s", &c_phone);
+      EXEC SQL DECLARE C002 CURSOR FOR
+    select PHONE_NUMBER, CUSTOMER_NAME, POINT 
+    from customer
+    where :c_phone = phone_number;
+
+  EXEC SQL OPEN C002;
+  printf("\t\t 고객 전화번호 \t 고객 이름 \t 포인트 \n");
+  EXEC SQL WHENEVER NOT FOUND DO break;
+  for (;;) {
+    EXEC SQL FETCH C002 INTO :phone_number, :customer_name, :point;
+    printf("\t\t %11s \t %s \t %s \n", phone_number, customer_name, point);
+  }
+   EXEC SQL CLOSE C002;
+
+   EXEC SQL WHENEVER NOT FOUND CONTINUE;
+   EXEC SQL delete from customer where phone_number = :c_phone;
+   printf("\t\t================================삭제완료=================================\n\n");
+   EXEC SQL COMMIT WORK;
+}
+
+//---------------------------------------- 고객 끝 -----------------------------------------
+
+
+void show_liqdate(){  // 영수증 목록 보여주는 함수
+
+int select;
+
+printf("\t\t================================영수증목록=================================\n\n");
+   EXEC SQL BEGIN DECLARE SECTION;
+      char barcode[10];
+      char time[9];
+      int product;
+      int amount;
+      int c_num;
+   EXEC SQL END DECLARE SECTION;
+   EXEC SQL DECLARE CUR100 CURSOR FOR  // 커서 선언
+      select LIQ_BARCODE, LIQ_TIME, LIQ_PRO, LIQ_AMOUNT, LIQ_C_NUMBER
+      from LIQUIDATE;
+   EXEC SQL OPEN CUR100;
+   printf("\n\t\t바코드 \t\t거래시간 \t물품 \t\t가격   \t\t결제 방식\n\n");
+   EXEC SQL WHENEVER NOT FOUND DO break;
+   for(;;){
+      EXEC SQL FETCH CUR100 INTO :barcode, :time, :product, :amount, :c_num;
+      printf("\t\t%s \t%s \t%d \t\t%d\t\t", barcode, time, product, amount);
+      if(c_num == 1)
+        printf("현금결제\n");
+      if(c_num == 2)
+        printf("카드결제\n");    
+   }
+   EXEC SQL CLOSE CUR100;
+
+    printf("\n\n\t\t1. 환불하기   2. 나가기 ");
+    scanf("%d", &select);
+    switch(select){
+        case 1:
+	clear_stdin();
+	Refund_select();
+            break;
+        case 2:
+            return;
+        default:
+            return;
+    }
+}
+
+
+
+void Update_tuple()
+{   
+    for(int x=0; x<=i;x++){
+        EXEC SQL BEGIN DECLARE SECTION;
+
+        char dynstmt3[1000];
+
+        EXEC SQL END DECLARE SECTION;
+
+        char product_code[100];
+        char product_name[14];
+        char amount[13];
+
+    EXEC SQL WHENEVER SQLERROR DO sql_error("\7ORACLE ERROR:\n");
+        strcpy(product_code, p_code[x]);
+        strcpy(product_name, p_name[x]);
+        strcpy(amount, p_amount[x]);
+
+        sprintf(dynstmt3,"update product set amount=%s-1 where product_code=%s", amount,product_code);
+        //printf("stmt:%s\n", dynstmt3);
+        
+        EXEC SQL EXECUTE IMMEDIATE :dynstmt3 ;
+
+        //printf("Update Success\n");
+        EXEC SQL COMMIT WORK ; 
+    }
+}
+
+void clear_stdin() 
+{
+   int ch;
+   while ((ch = getchar()) != EOF && ch != '\n') {};
+}
+void Insert_tuple()
+{   
+  
+    for(int x=0; x<=i;x++){
+        EXEC SQL BEGIN DECLARE SECTION;
+        int amount;
+	    char date[20];
+        char dynstmt[1000];
+        EXEC SQL END DECLARE SECTION;
+
+        varchar liq_barcode[10];
+        varchar liq_time[20];
+        varchar liq_pro[10];
+        varchar liq_amount[10];
+        varchar liq_c_number[10];
+
+        EXEC SQL WHENEVER SQLERROR DO sql_error("\7ORACLE ERROR:\n");
+        
+        strcpy(liq_pro, p_code[x]);
+        strcpy(liq_amount, p_amount[x]);
+        amount = total;
+        strcpy(date, s1);
+        sprintf(dynstmt,"insert into liquidate values ( '%d',%s, '%s','%s','%d')",m_bacode,s1,p_code[x],p_price[x],paytype);
+        
+      if (paytype == 1) { 	/// 카드결제 정산 테이블 업데이트
+          EXEC SQL update closedcash
+              set pay_card = to_number(pay_card) + :amount
+              where clo_date = :date;
+          EXEC SQL COMMIT WORK;
+        }
+
+      else if (paytype == 2) { 	/// 현금결제 정산 테이블 업데이트
+        EXEC SQL update closedcash
+            set pay_cash = to_number(pay_cash) + :amount
+            where clo_date = :date;
+        EXEC SQL COMMIT WORK;
+      }
+        if(x==i){	
+        printf("\n\t\t 결제가 완료되었습니다. 감사합니다 :)\n");
+       }
+        EXEC SQL EXECUTE IMMEDIATE :dynstmt ;
+
+        EXEC SQL COMMIT WORK ; 
+        Sleep(1500);
+    }
+}
+void Refund_select(){ 
+    EXEC SQL BEGIN DECLARE SECTION;
+        varchar liq_time[20][100];
+        varchar liq_amount[20][20];
+        varchar liq_c_number[20][13];
+        char dynstmt[1000];
+        char no_temp1[10];
+    EXEC SQL END DECLARE SECTION;
+    
+    int q=0;
+    int all = 0;
+
+    EXEC SQL WHENEVER SQLERROR DO sql_error("\7ORACLE ERROR:\n");
+    printf("\t\t환불할 영수증 번호를 입력하세요:");
+    fgets(no_temp1, 10, stdin); 
+    no_temp1[strlen(no_temp1)-1] = '\0' ;
+    sprintf(dynstmt,"select liq_time,liq_amount,liq_c_number from liquidate where liq_barcode='%s'", no_temp1) ;
+
+   EXEC SQL PREPARE S FROM :dynstmt ;
+    EXEC SQL DECLARE c_cursorrf CURSOR FOR S ; 
+    EXEC SQL OPEN c_cursorrf ; 
+
+    EXEC SQL WHENEVER NOT FOUND do break;
+    for(;;)
+    {
+        EXEC SQL FETCH c_cursorrf INTO :liq_time[q], :liq_amount[q], :liq_c_number[q] ;
+
+	    liq_time[q].arr[liq_time[q].len] = '\0';
+	    liq_amount[q].arr[liq_amount[q].len] = '\0';
+	    liq_c_number[q].arr[liq_c_number[q].len] = '\0';
+       
+	    //printf("날짜:%s 가격:%s 카드/현금:%s \n", liq_time[q].arr, liq_amount[q].arr, liq_c_number[q].arr);
+            all += atoi(liq_amount[q].arr);
+	q=q+1;
+        
+    }
+    printf("\n\t\t환불이 완료되었습니다 :) \n\t\t환불된 거래코드 : %s  환불 금액 : %d", no_temp1, all);
+   for(int i=0;i<q;i++){
+        strcpy(r_time[i], liq_time[i].arr);
+        strcpy(r_price[i], liq_amount[i].arr);
+        strcpy(r_check[i], liq_c_number[i].arr);
+   }
+   char aa[]={'1'};
+   printf("\n%s\n",r_check[0]);
+  if(r_check[0][0]=='1'){ //현금
+    for(int x=0;x<q;x++){
+         sprintf(dynstmt," update closedcash set pay_cash = pay_cash - %s where clo_date = %s",r_price[x] ,r_time[x]);
+        //printf("stmt:%s\n", dynstmt);
+        EXEC SQL EXECUTE IMMEDIATE :dynstmt ;
+        //printf("Update Success\n");
+        EXEC SQL COMMIT WORK ;
+    }
+  }
+  else if(r_check[0][0]=='2'){ //카드
+       for(int x=0;x<q;x++){
+         sprintf(dynstmt," update closedcash set pay_card = pay_cash - %s where clo_date = %s",r_price[x] ,r_time[x]);
+        //printf("stmt:%s\n", dynstmt);
+        EXEC SQL EXECUTE IMMEDIATE :dynstmt ;
+        //printf("Update Success\n");
+        EXEC SQL COMMIT WORK ; 
+    }
+  }
+  EXEC SQL WHENEVER NOT FOUND CONTINUE;
+     EXEC SQL delete from liquidate where liq_barcode = :no_temp1;
+     printf("\t\t================================삭제완료=================================\n\n");
+     EXEC SQL COMMIT WORK;
+   
+
+}
+void intInput(char str[],int *num){
+  do{
+    fgets(str,sizeof(str),stdin);
+  }while(sscanf(str,"%d",num)!=1);
+}
+
+void Select_tuple()
+{
+    EXEC SQL BEGIN DECLARE SECTION;
+        varchar product_code[20][100];
+        varchar product_name[20][20];
+        varchar amount[20][13];
+        varchar price[20][6];
+
+        char dynstmt[1000];
+        char dynstmt2[1000];
+    EXEC SQL END DECLARE SECTION;
+    int total_sel=0;
+    int num=0;
+
+    EXEC SQL WHENEVER SQLERROR DO sql_error("\7ORACLE ERROR:\n");
+    printf("\n\t\t================================상품판매=================================\n\n");
+   while(1){
+        stop=0;
+        
+        char no_temp1[10];  
+        printf("\n\n\t\t  판매할 상품의 바코드를 스캔해주세요 :");
+        //scanf("%s", &no_temp1);
+        fgets(no_temp1, 10, stdin);
+       //intInput(no_temp1,&num);
+        no_temp1[strlen(no_temp1)-1] = '\0' ;  
+    
+            
+            sprintf(dynstmt,"SELECT product_code, product_name, amount, price  FROM product where product_code = %s", no_temp1) ;
+            system("cls");
+            printf("\n\t\t         판매 목록\n\t\t ──────────────────────────────");
+        for(int j=0;j-1<i;j++){
+            EXEC SQL PREPARE S FROM :dynstmt ;
+
+            EXEC SQL DECLARE c_cursor CURSOR FOR S ; 
+            EXEC SQL OPEN c_cursor ; 
+            EXEC SQL WHENEVER NOT FOUND do break;
+
+            for(;;)
+                {
+                    EXEC SQL FETCH c_cursor INTO :product_code[i], :product_name[i], :amount[i], :price[i] ;
+                    product_code[i].arr[product_code[i].len] = '\0';
+                    product_name[i].arr[product_name[i].len] = '\0';
+                    amount[i].arr[amount[i].len] = '\0';
+                    price[i].arr[price[i].len] = '\0';
+	        
+                    printf("\n\t\t %s  │   %s    │   %s원 \n", product_code[j].arr, product_name[j].arr, price[j].arr);
+                }
+                
+                strcpy(p_code[i], product_code[i].arr);
+                strcpy(p_name[i], product_name[i].arr);
+                strcpy(p_amount[i], amount[i].arr);
+                strcpy(p_price[i], price[i].arr);
+            
+            if(sqlca.sqlerrd[2] == 0){
+                stop=1;
+            }
+
+              
+    //printf("match tuple no : %d\n", sqlca.sqlerrd[2]);
+                EXEC SQL CLOSE c_cursor; 
+        }   
+    char c=' ';
+    int a=0;
+    int t=0; //결제방식
+    int num1;
+    num1 =atoi(price[i].arr);
+    total_sel+=num1;
+    if(stop==1){
+        i=0;
+          printf("\n\t\t 잘못된 입력입니다. 초기 화면으로 돌아갑니다.\n"); 
+        char p_code[20][100], p_name[20][14], p_amount[20][13],p_price[20][6] ;
+        Sleep(1500);
+        break;
+    }
+    printf("\n\t\t ──────────────────────────────\n\t\t 총 결제 금액 : %d\n",total_sel);         
+    printf("\n\t\t 계산을 계속하시겠습니까? N/n을 누르면 계산을 종료합니다.\n");
+    printf("\t\t ");
+    scanf("%c",&c);  
+    clear_stdin();
+    switch(c){
+        case 'N':
+            make_bacode();
+            a=1;
+            bacode+=1;
+            break;
+        case 'n':
+            make_bacode();
+            a=1;
+            bacode+=1;
+            break;
+        default:
+            i++;
+            break;
+    }
+      if(a==1){
+	total = total_sel;
+ 	printf("\t\t 1. 카드결제 2. 현금결제 : ");
+	scanf("%d", &t);
+
+	switch(t) {
+	   case 1: //카드
+		paytype=1;
+		break;
+	  case 2: //현금
+		paytype=2;
+		break;
+	}
+        break;
+    }
+   
+    //fpurge (stdin);
+
+    }
+}
+
+
+void DB_connect() {
+   strcpy((char*)uid.arr, "a20143239@//sedb.deu.ac.kr:1521/orcl");
+   uid.len = (short)strlen((char *)uid.arr);
+   strcpy((char *)pwd.arr,"20143239");
+   pwd.len = (short)strlen((char *)pwd.arr);
+
+   EXEC SQL CONNECT :uid IDENTIFIED BY :pwd;
+
+   if (sqlca.sqlcode != 0 && sqlca.sqlcode != -1405){
+      printf("\7Connect error: %s", sqlca.sqlerrm.sqlerrmc);
+      getch();
+      exit(-1);
+   }
+
+       printf("Oracle Connect SUCCESS by %s\n\n", uid.arr);
+}
+
+void sql_error(char *msg){
+    char err_msg[128];
+    size_t buf_len, msg_len;
+
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+
+    printf("\n%s\n", msg);
+    buf_len = sizeof (err_msg);
+    sqlglm(err_msg, &buf_len, &msg_len);
+    printf("%.*s\n", msg_len, err_msg);
+    getch();
+
+    EXEC SQL ROLLBACK WORK;
+}
